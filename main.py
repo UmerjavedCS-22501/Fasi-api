@@ -1,7 +1,7 @@
 from fastapi import FastAPI,Path,HTTPException,Query
 from pydantic import BaseModel,Field,computed_field
 from fastapi.responses import JSONResponse
-from typing import Annotated,Literal
+from typing import Annotated,Literal,Optional
 import json
 
 app=FastAPI()
@@ -11,7 +11,7 @@ class patient(BaseModel):
     name:Annotated[str,Field(...,description="Enter the patient name",examples=['umer'])]
     city:Annotated[str,Field(...,description='Enter the city name')]
     age:Annotated[int,Field(...,gt=0,lt=120)]
-    gender:Annotated[Literal['Male','Female','Other'],Field(description='Enter your gender')]
+    gender:Annotated[Literal['male','female','other'],Field(description='Enter your gender')]
     height:Annotated[float,Field(...,gt=0,description="Enter the height greater then o and in meters")]
     weight:Annotated[float,Field(...,description='enter the weight in kg')]
 
@@ -30,6 +30,15 @@ class patient(BaseModel):
             return 'Normal'
         else:
             return'obese'
+class patient_update(BaseModel):
+
+    name:Annotated[Optional[str],Field(default=None)]  
+    city:Annotated[Optional[str],Field(default=None)] 
+    age :Annotated[Optional[str],Field(default=None)]
+    gender:Annotated[Optional[Literal['male','female']],Field(default=None)]  
+    height:Annotated[Optional[float],Field(default=None,gt=0)]  
+    weight:Annotated[Optional[float],Field(default=None,gt=0)] 
+
            
 
 
@@ -103,6 +112,65 @@ def creat_patient(patient:patient):
     save_data(data)
 
     return JSONResponse(status_code=201,content={'message':"patient sucessfully added"})
+
+@app.put('/edit/{patient_id}')
+
+def patient_update(patient_id:str,patient_update:patient_update):
+
+#    load the data
+    data=load_data()
+
+    if patient_id not in data:
+        raise HTTPException(status_code=404,detail="patient not found .")
+    
+    #geting the past data of the patient in which user want to update.
+    existing_patient_info=data[patient_id]
+
+    update_patient_info=patient_update.model_dump(exclude_unset=True)
+
+    for key,value in update_patient_info.items():
+        existing_patient_info[key]=value
+
+# convert the existing patient info into pydantic objec for the update of bmi and verdict.
+
+    existing_patient_info['id']=patient_id
+    patient_paydantic_object=patient(**existing_patient_info)
+
+    # paydantic object into dict
+
+    existing_patient_info=patient_paydantic_object.model_dump(exclude='id')
+
+
+
+    #add this in to the data set
+    data[patient_id]=existing_patient_info
+
+    # save data
+    data=save_data(data)
+    return JSONResponse(status_code=200,content={'message':'patient updated sucessfully'})
+
+
+@app.delete('/delete/{patient_id}')
+
+def del_patient(patient_id:str):
+    
+    data= load_data()
+    if patient_id not in data:
+        raise HTTPException(status_code=404,detail='patient not found')
+    
+    del data[patient_id]
+
+    save_data(data)
+
+    return JSONResponse(status_code=200,content={'message':'patient delete sucessfully.'})
+
+
+
+
+
+
+
+
 
 
 
